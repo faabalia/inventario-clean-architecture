@@ -4,7 +4,8 @@ public record ProductResponse(
 		Long id,
 		String sku,
 		String name,
-		String description
+		String description,
+		Integer minStock
 ) {
 }
 

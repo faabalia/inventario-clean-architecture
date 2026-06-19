@@ -13,12 +13,18 @@ public class Product {
     private String sku;
     private String name;
     private String description;
+    private int minStock;
 
     public Product(Long id, String sku, String name, String description) {
+        this(id, sku, name, description, 0);
+    }
+
+    public Product(Long id, String sku, String name, String description, int minStock) {
         this.id = id;
         this.sku = sku;
         this.name = name;
         this.description = description;
+        this.minStock = minStock;
     }
 
     public Long getId() {
@@ -35,6 +41,10 @@ public class Product {
 
     public String getDescription() {
         return description;
+    }
+
+    public int getMinStock() {
+        return minStock;
     }
 
     @Override
@@ -56,6 +66,7 @@ public class Product {
                 "id=" + id +
                 ", sku='" + sku + '\'' +
                 ", name='" + name + '\'' +
+                ", minStock=" + minStock +
                 '}';
     }
 }

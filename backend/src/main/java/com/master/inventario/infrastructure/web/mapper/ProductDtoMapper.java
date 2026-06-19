@@ -9,11 +9,17 @@ import org.springframework.stereotype.Component;
 public class ProductDtoMapper {
 
 	public Product toDomain(CreateProductRequest request) {
-		return new Product(null, request.sku(), request.name(), request.description());
+		return new Product(null, request.sku(), request.name(), request.description(), 0);
 	}
 
 	public ProductResponse toResponse(Product product) {
-		return new ProductResponse(product.getId(), product.getSku(), product.getName(), product.getDescription());
+		return new ProductResponse(
+				product.getId(),
+				product.getSku(),
+				product.getName(),
+				product.getDescription(),
+				product.getMinStock()
+		);
 	}
 }
 

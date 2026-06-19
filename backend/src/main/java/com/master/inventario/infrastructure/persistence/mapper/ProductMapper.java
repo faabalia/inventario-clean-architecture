@@ -24,7 +24,8 @@ public class ProductMapper {
                 entity.getId(),
                 entity.getSku(),
                 entity.getName(),
-                entity.getDescription()
+                entity.getDescription(),
+                entity.getMinStock() == null ? 0 : entity.getMinStock()
         );
     }
 
@@ -42,6 +43,7 @@ public class ProductMapper {
                 .sku(domain.getSku())
                 .name(domain.getName())
                 .description(domain.getDescription())
+                .minStock(domain.getMinStock())
                 .build();
     }
 }

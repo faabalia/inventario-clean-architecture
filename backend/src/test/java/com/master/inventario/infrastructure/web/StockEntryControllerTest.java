@@ -3,6 +3,7 @@ package com.master.inventario.infrastructure.web;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.master.inventario.domain.exception.InvalidBatchQuantityException;
 import com.master.inventario.domain.exception.ProductNotFoundException;
+import com.master.inventario.domain.exception.BatchNotFoundException;
 import com.master.inventario.domain.model.Batch;
 import com.master.inventario.domain.model.Product;
 import com.master.inventario.infrastructure.web.controller.StockEntryController;
@@ -10,11 +11,12 @@ import com.master.inventario.infrastructure.web.exception.GlobalExceptionHandler
 import com.master.inventario.infrastructure.web.mapper.StockEntryDtoMapper;
 import com.master.inventario.usecase.GetProductByIdUseCase;
 import com.master.inventario.usecase.RegisterStockEntryUseCase;
+import com.master.inventario.usecase.DeleteBatchUseCase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,7 +31,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -43,10 +47,13 @@ class StockEntryControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @MockitoBean
     private RegisterStockEntryUseCase registerStockEntryUseCase;
 
-    @MockBean
+    @MockitoBean
+    private DeleteBatchUseCase deleteBatchUseCase;
+
+    @MockitoBean
     private GetProductByIdUseCase getProductByIdUseCase;
 
     @Test
@@ -193,6 +200,25 @@ class StockEntryControllerTest {
                 "Client-supplied receivedDate must be ignored");
         assertEquals(LocalDate.now(), capturedReceivedDate,
                 "receivedDate must be today (assigned by server)");
+    }
+
+    @Test
+    @DisplayName("Should return 204 when deleting an existing stock entry")
+    void shouldReturnNoContentWhenDeletingExistingStockEntry() throws Exception {
+        mockMvc.perform(delete("/api/stock-entries/5"))
+                .andExpect(status().isNoContent());
+
+        verify(deleteBatchUseCase).execute(5L);
+    }
+
+    @Test
+    @DisplayName("Should return 404 when deleting a missing stock entry")
+    void shouldReturnNotFoundWhenDeletingMissingStockEntry() throws Exception {
+        doThrow(new BatchNotFoundException(99L)).when(deleteBatchUseCase).execute(99L);
+
+        mockMvc.perform(delete("/api/stock-entries/99"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 }
 

@@ -12,11 +12,12 @@ import com.master.inventario.usecase.CreateProductUseCase;
 import com.master.inventario.usecase.GetProductByIdUseCase;
 import com.master.inventario.usecase.ListProductStockEntriesUseCase;
 import com.master.inventario.usecase.ListProductsUseCase;
+import com.master.inventario.usecase.UpdateProductUseCase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.data.domain.Page;
@@ -26,7 +27,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.Pageable;
@@ -38,6 +38,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -48,16 +49,19 @@ class ProductControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private CreateProductUseCase createProductUseCase;
 
-    @MockBean
+    @MockitoBean
+    private UpdateProductUseCase updateProductUseCase;
+
+    @MockitoBean
     private ListProductsUseCase listProductsUseCase;
 
-    @MockBean
+    @MockitoBean
     private GetProductByIdUseCase getProductByIdUseCase;
 
-    @MockBean
+    @MockitoBean
     private ListProductStockEntriesUseCase listProductStockEntriesUseCase;
 
     @Test
@@ -134,6 +138,47 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.page.totalElements").value(1))
                 .andExpect(jsonPath("$.page.number").value(0))
                 .andExpect(jsonPath("$.page.size").value(10));
+    }
+
+    @Test
+    @DisplayName("Should update product and return 200")
+    void shouldUpdateProductAndReturnOk() throws Exception {
+        Product updated = new Product(1L, "SKU-1", "Milk Updated", "Whole milk updated", 7);
+        when(updateProductUseCase.execute(1L, "Milk Updated", "Whole milk updated", 7)).thenReturn(updated);
+
+        String requestJson = """
+                {
+                  "name": "Milk Updated",
+                  "description": "Whole milk updated",
+                  "minStock": 7
+                }
+                """;
+
+        mockMvc.perform(put("/api/products/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.name").value("Milk Updated"))
+                .andExpect(jsonPath("$.minStock").value(7));
+    }
+
+    @Test
+    @DisplayName("Should return 400 when update payload is invalid")
+    void shouldReturnBadRequestWhenUpdatePayloadIsInvalid() throws Exception {
+        String requestJson = """
+                {
+                  "name": "",
+                  "description": "Whole milk updated",
+                  "minStock": -1
+                }
+                """;
+
+        mockMvc.perform(put("/api/products/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REQUEST_VALIDATION_ERROR"));
     }
 
     @Test

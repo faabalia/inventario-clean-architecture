@@ -1,6 +1,7 @@
 package com.master.inventario.infrastructure.web.exception;
 
 import com.master.inventario.domain.exception.DomainException;
+import com.master.inventario.domain.exception.BatchNotFoundException;
 import com.master.inventario.domain.exception.ProductNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -22,6 +23,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ProductNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(ProductNotFoundException ex, HttpServletRequest request) {
+        return buildErrorResponse(HttpStatus.NOT_FOUND, "NOT_FOUND", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(BatchNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleBatchNotFound(BatchNotFoundException ex, HttpServletRequest request) {
         return buildErrorResponse(HttpStatus.NOT_FOUND, "NOT_FOUND", ex.getMessage(), request);
     }
 

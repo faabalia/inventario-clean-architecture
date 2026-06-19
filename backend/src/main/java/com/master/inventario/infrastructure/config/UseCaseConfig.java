@@ -4,9 +4,11 @@ import com.master.inventario.usecase.RegisterStockEntryUseCase;
 import com.master.inventario.domain.repository.BatchRepository;
 import com.master.inventario.domain.repository.ProductRepository;
 import com.master.inventario.usecase.CreateProductUseCase;
+import com.master.inventario.usecase.DeleteBatchUseCase;
 import com.master.inventario.usecase.GetProductByIdUseCase;
 import com.master.inventario.usecase.ListProductStockEntriesUseCase;
 import com.master.inventario.usecase.ListProductsUseCase;
+import com.master.inventario.usecase.UpdateProductUseCase;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -32,6 +34,11 @@ public class UseCaseConfig {
     }
 
     @Bean
+    public UpdateProductUseCase updateProductUseCase(ProductRepository productRepository) {
+        return new UpdateProductUseCase(productRepository);
+    }
+
+    @Bean
     public ListProductsUseCase listProductsUseCase(ProductRepository productRepository) {
         return new ListProductsUseCase(productRepository);
     }
@@ -44,6 +51,11 @@ public class UseCaseConfig {
     @Bean
     public ListProductStockEntriesUseCase listProductStockEntriesUseCase(ProductRepository productRepository, BatchRepository batchRepository) {
         return new ListProductStockEntriesUseCase(productRepository, batchRepository);
+    }
+
+    @Bean
+    public DeleteBatchUseCase deleteBatchUseCase(BatchRepository batchRepository) {
+        return new DeleteBatchUseCase(batchRepository);
     }
 
     // Próximos casos de uso irían aquí...

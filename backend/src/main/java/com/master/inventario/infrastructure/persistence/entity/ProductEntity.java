@@ -31,5 +31,8 @@ public class ProductEntity {
 
     @Column(length = 500)
     private String description;
+
+    @Column(name = "min_stock", nullable = false, columnDefinition = "integer default 0")
+    private Integer minStock;
 }
 
