@@ -37,7 +37,7 @@ public class BatchRepositoryAdapter implements BatchRepository {
 
     @Override
     public Optional<Batch> findById(Long id) {
-        return batchJpaRepository.findById(id)
+        return batchJpaRepository.findWithProductById(id)
                 .map(batchMapper::toDomain);
     }
 

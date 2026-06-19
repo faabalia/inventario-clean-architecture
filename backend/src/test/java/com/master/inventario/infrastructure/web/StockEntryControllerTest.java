@@ -2,12 +2,13 @@ package com.master.inventario.infrastructure.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.master.inventario.domain.exception.InvalidBatchQuantityException;
+import com.master.inventario.domain.exception.ProductNotFoundException;
 import com.master.inventario.domain.model.Batch;
 import com.master.inventario.domain.model.Product;
-import com.master.inventario.domain.repository.ProductRepository;
 import com.master.inventario.infrastructure.web.controller.StockEntryController;
 import com.master.inventario.infrastructure.web.exception.GlobalExceptionHandler;
 import com.master.inventario.infrastructure.web.mapper.StockEntryDtoMapper;
+import com.master.inventario.usecase.GetProductByIdUseCase;
 import com.master.inventario.usecase.RegisterStockEntryUseCase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,9 +20,14 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
-import java.util.Optional;
 
+import org.mockito.ArgumentCaptor;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -41,7 +47,7 @@ class StockEntryControllerTest {
     private RegisterStockEntryUseCase registerStockEntryUseCase;
 
     @MockBean
-    private ProductRepository productRepository;
+    private GetProductByIdUseCase getProductByIdUseCase;
 
     @Test
     @DisplayName("Should return 201 when stock entry is valid")
@@ -49,7 +55,7 @@ class StockEntryControllerTest {
         Product product = new Product(1L, "SKU-API-1", "Milk", "Whole milk");
         Batch savedBatch = new Batch(10L, product, 20, LocalDate.now().plusDays(20), LocalDate.now());
 
-        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        when(getProductByIdUseCase.execute(1L)).thenReturn(product);
         when(registerStockEntryUseCase.execute(any(Batch.class))).thenReturn(savedBatch);
 
         String requestJson = """
@@ -74,7 +80,7 @@ class StockEntryControllerTest {
     void shouldReturnBadRequestWhenDomainValidationFails() throws Exception {
         Product product = new Product(1L, "SKU-API-1", "Milk", "Whole milk");
 
-        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        when(getProductByIdUseCase.execute(1L)).thenReturn(product);
         when(registerStockEntryUseCase.execute(any(Batch.class)))
                 .thenThrow(new InvalidBatchQuantityException("Quantity must be greater than zero"));
 
@@ -115,7 +121,7 @@ class StockEntryControllerTest {
     @Test
     @DisplayName("Should return 404 when product does not exist")
     void shouldReturnNotFoundWhenProductDoesNotExist() throws Exception {
-        when(productRepository.findById(999L)).thenReturn(Optional.empty());
+        when(getProductByIdUseCase.execute(999L)).thenThrow(new ProductNotFoundException(999L));
 
         String requestJson = objectMapper.writeValueAsString(new java.util.HashMap<>() {{
             put("productId", 999);
@@ -127,6 +133,66 @@ class StockEntryControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Should return unified JSON error when product is missing")
+    void shouldReturnUnifiedJsonErrorWhenProductIsMissing() throws Exception {
+        when(getProductByIdUseCase.execute(999L)).thenThrow(new ProductNotFoundException(999L));
+
+        String requestJson = """
+                {
+                  "productId": 999,
+                  "quantity": 20,
+                  "expiryDate": "%s"
+                }
+                """.formatted(LocalDate.now().plusDays(10));
+
+        mockMvc.perform(post("/api/stock-entries")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.message").exists())
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.path").value("/api/stock-entries"));
+    }
+
+    // --- OWASP API6:2023 — receivedDate assigned by server, never from client ---
+
+    @Test
+    @DisplayName("OWASP API6: should ignore receivedDate sent by client and use server date")
+    void shouldIgnoreClientReceivedDateAndUseServerDate() throws Exception {
+        Product product = new Product(1L, "SKU-API-1", "Milk", "Whole milk");
+        when(getProductByIdUseCase.execute(1L)).thenReturn(product);
+
+        Batch savedBatch = new Batch(5L, product, 10, LocalDate.now().plusDays(10), LocalDate.now());
+        when(registerStockEntryUseCase.execute(any())).thenReturn(savedBatch);
+
+        ArgumentCaptor<Batch> batchCaptor = ArgumentCaptor.forClass(Batch.class);
+
+        // Client attempts to send a backdated receivedDate — field is absent in DTO so it must be ignored
+        String requestJson = """
+                {
+                  "productId": 1,
+                  "quantity": 10,
+                  "expiryDate": "%s",
+                  "receivedDate": "2000-01-01"
+                }
+                """.formatted(LocalDate.now().plusDays(10));
+
+        mockMvc.perform(post("/api/stock-entries")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isCreated());
+
+        verify(registerStockEntryUseCase).execute(batchCaptor.capture());
+        LocalDate capturedReceivedDate = batchCaptor.getValue().getReceivedDate();
+        assertNotNull(capturedReceivedDate);
+        assertNotEquals(LocalDate.of(2000, 1, 1), capturedReceivedDate,
+                "Client-supplied receivedDate must be ignored");
+        assertEquals(LocalDate.now(), capturedReceivedDate,
+                "receivedDate must be today (assigned by server)");
     }
 }
 

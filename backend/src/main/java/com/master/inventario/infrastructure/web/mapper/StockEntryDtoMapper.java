@@ -12,14 +12,13 @@ import java.time.LocalDate;
 public class StockEntryDtoMapper {
 
     public Batch toDomain(RegisterStockEntryRequest request, Product product) {
-        LocalDate receivedDate = request.receivedDate() != null ? request.receivedDate() : LocalDate.now();
-
+        // receivedDate is always set by the server (OWASP API6:2023 — Mass Assignment mitigation).
         return new Batch(
                 null,
                 product,
                 request.quantity(),
                 request.expiryDate(),
-                receivedDate
+                LocalDate.now()
         );
     }
 

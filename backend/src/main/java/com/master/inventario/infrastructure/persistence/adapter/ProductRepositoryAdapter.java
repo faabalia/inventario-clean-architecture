@@ -6,6 +6,8 @@ import com.master.inventario.infrastructure.persistence.mapper.ProductMapper;
 import com.master.inventario.infrastructure.persistence.repository.ProductJpaRepository;
 import org.springframework.stereotype.Component;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.util.Optional;
 
 /**
@@ -31,6 +33,11 @@ public class ProductRepositoryAdapter implements ProductRepository {
         var entity = productMapper.toEntity(product);
         var savedEntity = productJpaRepository.save(entity);
         return productMapper.toDomain(savedEntity);
+    }
+
+    @Override
+    public Page<Product> findAll(Pageable pageable) {
+        return productJpaRepository.findAll(pageable).map(productMapper::toDomain);
     }
 
     @Override

@@ -2,6 +2,9 @@ package com.master.inventario.domain.repository;
 
 import com.master.inventario.domain.model.Product;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.util.Optional;
 
 /**
@@ -16,6 +19,13 @@ public interface ProductRepository {
      * @return el producto guardado
      */
     Product save(Product product);
+
+    /**
+     * Lista productos con paginación.
+     * @param pageable información de paginación
+     * @return página de productos
+     */
+    Page<Product> findAll(Pageable pageable);
 
     /**
      * Busca un producto por su ID.
