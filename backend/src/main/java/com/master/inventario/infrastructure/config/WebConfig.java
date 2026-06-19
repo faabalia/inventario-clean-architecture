@@ -5,8 +5,17 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.data.web.config.EnableSpringDataWebSupport;
 import org.springframework.data.web.config.PageableHandlerMethodArgumentResolverCustomizer;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.servlet.config.annotation.CorsRegistration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 
 /**
  * Web layer configuration.
@@ -23,6 +32,9 @@ public class WebConfig implements WebMvcConfigurer {
     private static final int DEFAULT_PAGE_SIZE = 10;
     private static final int MAX_PAGE_SIZE = 100;
 
+    @Value("${app.cors.allowed-origins:http://localhost:4200}")
+    private String[] allowedOrigins;
+
     @Bean
     PageableHandlerMethodArgumentResolverCustomizer pageableCustomizer() {
         return resolver -> {
@@ -33,11 +45,30 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**")
-                .allowedOrigins("http://localhost:4200")
+        CorsRegistration cors = registry.addMapping("/**")
+                .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                .allowedHeaders("*")
-                .allowCredentials(true);
+                .allowedHeaders("Content-Type", "Authorization")
+                .allowCredentials(true)
+                .maxAge(3600);
+
+        cors.exposedHeaders("Location");
+    }
+
+    @Bean
+    public OncePerRequestFilter securityHeadersFilter() {
+        return new OncePerRequestFilter() {
+            @Override
+            protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+                    throws ServletException, IOException {
+                response.setHeader("X-Content-Type-Options", "nosniff");
+                response.setHeader("X-Frame-Options", "DENY");
+                response.setHeader("Referrer-Policy", "no-referrer");
+                response.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+                response.setHeader("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+                filterChain.doFilter(request, response);
+            }
+        };
     }
 }
 

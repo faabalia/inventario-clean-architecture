@@ -23,6 +23,7 @@ import org.springframework.http.MediaType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
@@ -224,6 +225,50 @@ class ProductControllerTest {
                         .header("Access-Control-Request-Method", "GET"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("Should reject CORS preflight from non allowed origin")
+    void shouldRejectCorsPreflightFromNonAllowedOrigin() throws Exception {
+        mockMvc.perform(options("/api/products")
+                        .header("Origin", "http://evil.example")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Should return 409 when persistence integrity is violated")
+    void shouldReturnConflictWhenIntegrityIsViolated() throws Exception {
+        when(createProductUseCase.execute(any(Product.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate key value"));
+
+        String requestJson = """
+                {
+                  "sku": "SKU-1",
+                  "name": "Milk",
+                  "description": "Whole milk"
+                }
+                """;
+
+        mockMvc.perform(post("/api/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DATA_INTEGRITY_VIOLATION"));
+    }
+
+    @Test
+    @DisplayName("Should include hardened security headers")
+    void shouldIncludeHardenedSecurityHeaders() throws Exception {
+        Page<Product> page = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
+        when(listProductsUseCase.execute(any())).thenReturn(page);
+
+        mockMvc.perform(get("/api/products?page=0&size=10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page.size").value(10))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Frame-Options", "DENY"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().exists("Content-Security-Policy"));
     }
 
     // --- OWASP API3:2023 — oversized input rejected at DTO level ---
