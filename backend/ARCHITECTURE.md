@@ -1,119 +1,87 @@
-# 📦 Arquitectura de Persistencia - Clean Architecture
+# 📦 Arquitectura Completa del Proyecto - Clean Architecture
 
-## Estructura de Capas
+## Estructura de Capas y Flujo de Datos
+
+Este diagrama ilustra cómo fluye una petición a través de las distintas capas, desde la API REST hasta la base de datos.
 
 ```
+      CLIENTE (Navegador, App Móvil, etc.)
+                   │
+                   ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    DOMAIN (Núcleo Puro)                         │
-│  • Product (entidad de dominio)                                 │
-│  • Batch (entidad de dominio con validaciones)                  │
-│  • ProductRepository (interfaz - contrato)                      │
-│  • BatchRepository (interfaz - contrato)                        │
-│  • DomainExceptions (lenguaje ubicuo)                           │
-│  • RegisterStockEntryUseCase (orquestación)                     │
+│                INFRASTRUCTURE - Capa Web (API REST)             │
+│  • ProductController, StockEntryController                      │
+│  • DTOs (CreateProductRequest, ProductResponse)                 │
+│  • Web Mappers (ProductDtoMapper)                               │
 └─────────────────────────────────────────────────────────────────┘
-                            ▲
-                            │ Implementa
-                            │
+                   │ Pasa DTOs, Llama a Casos de Uso
+                   ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│              INFRASTRUCTURE (Detalle Técnico)                   │
+│                    USE CASES (Lógica de Aplicación)             │
+│  • CreateProductUseCase, RegisterStockEntryUseCase              │
+│  • Orquesta la lógica de negocio.                               │
+│  • Depende de INTERFACES de Repositorio (del Dominio).          │
+└─────────────────────────────────────────────────────────────────┘
+                   │ Pasa Objetos de Dominio, Llama a Repositorios
+                   ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    DOMAIN (Núcleo Puro del Negocio)             │
+│  • Product, Batch (Entidades de dominio con reglas)             │
+│  • ProductRepository, BatchRepository (Interfaces - Contratos)  │
+│  • DomainExceptions (Lenguaje Ubicuo)                           │
+└─────────────────────────────────────────────────────────────────┘
+                   ▲
+                   │ Implementa la Interfaz del Dominio
+                   │
+┌─────────────────────────────────────────────────────────────────┐
+│            INFRASTRUCTURE - Capa de Persistencia                │
 │                                                                 │
-│  Persistence Adapter Layer:                                     │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │ ProductRepositoryAdapter (Implements ProductRepository)   │  │
-│  │ BatchRepositoryAdapter (Implements BatchRepository)       │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                            ▲                                    │
-│                            │ Usa                                │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │         Mapper Layer (Domain ↔ Infrastructure)            │  │
-│  │ ProductMapper (Product ↔ ProductEntity)                   │  │
-│  │ BatchMapper (Batch ↔ BatchEntity)                         │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                            ▲                                    │
-│                            │ Convierte                          │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │         JPA Repository Layer (Spring Data)                │  │
-│  │ ProductJpaRepository (JpaRepository<ProductEntity>)       │  │
-│  │ BatchJpaRepository (JpaRepository<BatchEntity>)           │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                            ▲                                    │
-│                            │ Usa                                │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │            Entity Layer (Mapeado a BD)                    │  │
-│  │ ProductEntity (→ tabla 'products')                        │  │
-│  │ BatchEntity (→ tabla 'batches')                           │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                            ▲                                    │
-│                            │ Persiste En                        │
-│                            ▼                                    │
-│                    PostgreSQL Database                          │
+│  • Adapters: ProductRepositoryAdapter, BatchRepositoryAdapter   │
+│  • Mappers de Persistencia: ProductMapper (Dominio ↔ Entidad)   │
+│  • Repositorios JPA: ProductJpaRepository (Spring Data)         │
+│  • Entidades JPA: ProductEntity, BatchEntity (@Entity)          │
 └─────────────────────────────────────────────────────────────────┘
-```
-
-## Flujo de Datos (Ejemplo: Guardar un Batch)
-
-```
-1. UseCase (RegisterStockEntryUseCase)
-   └─> batch: Batch (objeto de dominio puro)
-   
-2. Adapter (BatchRepositoryAdapter)
-   └─> Recibe batch (dominio)
-   └─> Usa BatchMapper.toEntity(batch)
-   
-3. Mapper (BatchMapper)
-   └─> Convierte Batch → BatchEntity
-   └─> Convierte Product → ProductEntity
-   
-4. Spring Data (BatchJpaRepository)
-   └─> save(batchEntity)
-   
-5. Database (PostgreSQL)
-   └─> Persiste en tabla 'batches'
-   
-6. Response Path (Read)
-   └─> BatchEntity (resultado BD)
-   └─> BatchMapper.toDomain(entity)
-   └─> Batch (objeto dominio puro)
+                   │ Persiste/Consulta
+                   ▼
+           ┌───────────────────┐
+           │ PostgreSQL (BD)   │
+           └───────────────────┘
 ```
 
 ## Ventajas de esta Arquitectura
 
-✅ **Aislamiento del Dominio**
-   - El dominio NO conoce de JPA, SQL, Spring Data
-   - El dominio es testeable sin base de datos
-   
-✅ **Inversión de Dependencias**
-   - El dominio define interfaces (ProductRepository, BatchRepository)
-   - La infraestructura las implementa
-   - Las dependencias apuntan HACIA el dominio
-   
-✅ **Mantenibilidad**
-   - Cambiar de BD (PostgreSQL → MongoDB) = cambiar solo adaptadores
-   - La lógica de negocio NO cambia
-   
-✅ **Testabilidad**
-   - Test del dominio: mock del repositorio ✓
-   - Test del adaptador: test con JPA ✓
-   - Test de integración: test end-to-end ✓
+✅ **Aislamiento del Dominio**: El núcleo del negocio no conoce la web, ni la base de datos, ni el framework. Es puro, reutilizable y fácil de probar.
+
+✅ **Inversión de Dependencias**: Las flechas de dependencia apuntan hacia el centro (hacia el DOMAIN). La infraestructura depende del dominio, no al revés.
+
+✅ **Mantenibilidad y Flexibilidad**:
+   - Cambiar de `PostgreSQL` a `MongoDB` solo requiere cambiar la capa de persistencia. El dominio y los casos de uso no se tocan.
+   - Exponer una API `GraphQL` en lugar de `REST` solo implicaría cambiar la capa web.
+
+✅ **Testabilidad Superior**: Cada capa puede ser probada de forma independiente.
+   - **Capa Web**: Pruebas con `MockMvc` para verificar controladores y DTOs.
+   - **Casos de Uso**: Pruebas unitarias rápidas "mockeando" los repositorios.
+   - **Capa de Persistencia**: Pruebas de integración con **Testcontainers**, que validan todo el stack de persistencia contra una base de datos real.
 
 ## Responsabilidades por Capa
 
 | Componente | Responsabilidad |
-|-----------|-----------------|
-| **Domain Model** | Validaciones de negocio, cálculos, reglas |
-| **UseCase** | Orquestación de lógica de negocio |
-| **Repository Adapter** | Traducir llamadas de dominio a infraestructura |
-| **Mapper** | Convertir entre objetos de dominio y entidades JPA |
-| **JPA Repository** | Acceso a datos técnico (Spring Data) |
-| **Entity** | Mapeo a tabla de base de datos |
+|---|---|
+| **Controller (Web)** | Recibir peticiones HTTP, validar DTOs, orquestar la llamada al caso de uso y devolver una respuesta HTTP. Cero lógica de negocio. |
+| **DTO / Web Mapper** | Transferir datos hacia y desde la capa web. Traducir entre el mundo HTTP (JSON) y los objetos de los casos de uso. |
+| **Use Case** | Orquestar los pasos para cumplir una funcionalidad. Contiene la lógica de la aplicación (ej: "para crear un producto, primero valida esto, luego llama al repositorio y finalmente notifica a otro sistema"). |
+| **Domain Model** | Representar los conceptos centrales del negocio, sus reglas y su estado. Es el corazón de la aplicación. |
+| **Repository Interface (Domain)** | Definir un contrato (`save`, `findById`, etc.) para la persistencia, sin conocer la implementación. |
+| **Repository Adapter (Infra)** | Implementar la interfaz del repositorio del dominio, actuando como un puente. |
+| **Persistence Mapper (Infra)** | Convertir objetos del dominio a entidades JPA (y viceversa). |
+| **JPA Repository (Infra)** | Interfaz de Spring Data para el acceso técnico a la base de datos. |
+| **JPA Entity (Infra)** | Mapeo 1:1 con una tabla de la base de datos. Anotada con `@Entity`. |
 
-## Proximos Pasos
+## Estado del Proyecto
 
-1. ✅ Dominio puro
-2. ✅ Entidades JPA
-3. ✅ Adaptadores + Mappers
-4. ⏳ Controllers (REST API)
-5. ⏳ Integration Tests
-6. ⏳ Error Handling Global
-
+1.  ✅ **Dominio Puro**: Implementado y validado.
+2.  ✅ **Casos de Uso**: Implementados para las operaciones principales.
+3.  ✅ **Capa de Persistencia**: Implementada con adaptadores, mappers y repositorios JPA.
+4.  ✅ **Capa Web (API REST)**: Controladores funcionales para productos y stock.
+5.  ✅ **Pruebas de Integración**: Robustas, utilizando Testcontainers para la capa de persistencia.
+6.  ✅ **Manejo de Excepciones**: Estructura básica para manejar errores y devolver estados HTTP correctos.
