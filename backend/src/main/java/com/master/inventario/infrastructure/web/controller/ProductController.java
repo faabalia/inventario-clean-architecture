@@ -12,6 +12,7 @@ import com.master.inventario.usecase.ListProductsUseCase;
 import com.master.inventario.usecase.CreateProductUseCase;
 import com.master.inventario.usecase.UpdateProductUseCase;
 import jakarta.validation.Valid;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -71,7 +72,7 @@ public class ProductController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<ProductResponse>> list(Pageable pageable) {
+    public ResponseEntity<Page<ProductResponse>> list(@ParameterObject Pageable pageable) {
         Page<ProductResponse> response = listProductsUseCase.execute(pageable).map(productDtoMapper::toResponse);
         return ResponseEntity.ok(response);
     }

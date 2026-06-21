@@ -1,8 +1,8 @@
 package com.master.inventario.infrastructure.config;
 
+import org.jspecify.annotations.NonNull;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.data.web.config.EnableSpringDataWebSupport;
 import org.springframework.data.web.config.PageableHandlerMethodArgumentResolverCustomizer;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,7 +19,6 @@ import java.io.IOException;
 
 /**
  * Web layer configuration.
- *
  * Pageable hardening (OWASP API4:2023 — Unrestricted Resource Consumption):
  * - Default page size: 10
  * - Maximum page size: 100 (requests with size > 100 are silently capped)
@@ -59,13 +58,22 @@ public class WebConfig implements WebMvcConfigurer {
     public OncePerRequestFilter securityHeadersFilter() {
         return new OncePerRequestFilter() {
             @Override
-            protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
                     throws ServletException, IOException {
                 response.setHeader("X-Content-Type-Options", "nosniff");
                 response.setHeader("X-Frame-Options", "DENY");
                 response.setHeader("Referrer-Policy", "no-referrer");
                 response.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
-                response.setHeader("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+
+                String path = request.getRequestURI();
+                boolean isSwaggerPath = path.startsWith("/swagger-ui") || path.startsWith("/v3/api-docs") || path.startsWith("/webjars");
+                if (isSwaggerPath) {
+                    response.setHeader("Content-Security-Policy",
+                            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'");
+                } else {
+                    response.setHeader("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+                }
+
                 filterChain.doFilter(request, response);
             }
         };
