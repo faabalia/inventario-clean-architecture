@@ -109,11 +109,8 @@ final class ProductServiceTests: XCTestCase {
 
     private func pagedProductsJSON() -> Data {
         """
-        {
-            "content":[{"id":1,"sku":"LCHE-001","name":"Leche entera","description":null,"minStock":10}],
-            "totalElements":1,"totalPages":1,"number":0,"size":10,
-            "first":true,"last":true,"empty":false
-        }
+        {"content":[{"id":1,"sku":"LCHE-001","name":"Leche entera","description":null,"minStock":10}],
+        "page":{"size":10,"number":0,"totalElements":1,"totalPages":1}}
         """.data(using: .utf8)!
     }
 

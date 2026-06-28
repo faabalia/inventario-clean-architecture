@@ -36,8 +36,7 @@ final class ProductTests: XCTestCase {
         let json = """
         {
             "content":[{"id":1,"sku":"LCHE-001","name":"Leche entera","description":null,"minStock":10}],
-            "totalElements":1,"totalPages":1,"number":0,"size":10,
-            "first":true,"last":true,"empty":false
+            "page":{"size":10,"number":0,"totalElements":1,"totalPages":1}
         }
         """.data(using: .utf8)!
 
@@ -54,7 +53,7 @@ final class ProductTests: XCTestCase {
 
     func test_productResponse_decodesEmptyPage() throws {
         let json = """
-        {"content":[],"totalElements":0,"totalPages":0,"number":0,"size":10,"first":true,"last":true,"empty":true}
+        {"content":[],"page":{"size":10,"number":0,"totalElements":0,"totalPages":0}}
         """.data(using: .utf8)!
 
         let page = try decoder.decode(Page<ProductResponse>.self, from: json)
